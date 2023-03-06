@@ -1,0 +1,104 @@
+---
+title: "Tidy Project Data"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(rvest)
+library(dplyr)
+
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+
+
+```{r cars}
+#Check If Paths are allowed
+library(robotstxt)
+paths_allowed("https://www.mlb.com/astros/stats/team/2017/postseason-cumulative?split=a")
+```
+
+
+```{r}
+#scrape away
+url_away <- "https://www.mlb.com/astros/stats/team/2017/postseason-cumulative?split=a"
+tables_away<- url_away %>%read_html()%>%html_nodes("table")
+
+length(tables_away)
+
+away<- html_table(tables_away[[1]])
+print(away)
+```
+```{r}
+
+#scrape home
+url_home <- "https://www.mlb.com/astros/stats/team/2017/postseason-cumulative?split=h"
+tables_home<- url_home %>%read_html()%>%html_nodes("table")
+
+length(tables_home)
+
+home<- html_table(tables_home[[1]])
+print(home)
+
+teamNames <- c("Colorado Rockies", "LA Dodgers", "Arizona D-Backs",  "Minnesota Twins", "Boston Red Sox", "Chicago Cubs", "New York Yankies", "Cleveland Indians", "Washington Nationals", "")
+
+researchQuestions <- c("Batting Averages", "Total Home Runs", "On-Base Percentages")
+
+```
+```{r}
+#Changing column name for OPS
+home <- home %>% rename("OPS"=`caret-upcaret-downOPS`)
+
+away <- away %>% rename("OPS"=`caret-upcaret-downOPS`)
+
+```
+
+```{r}
+#Adding Location Variable
+home <- home %>% mutate("Location"= "Home")
+
+away <- away %>% mutate("Location" = "Away")
+```
+
+```{r}
+#wrangle the data
+postseason <- bind_rows(home, away)%>% 
+  arrange(Location)%>%
+  mutate(TeamName = str_replace_all(string = TEAM, pattern = "[0-9]", replacement=""))%>%
+  select(-LEAGUE, -TEAM, -SB, -CS)
+
+postseasonfinal <- postseason %>% 
+  select(TeamName,Location, G, AB, R, H, "2B", "3B", HR, RBI, BB, SO, AVG, OBP, SLG, OPS)
+
+
+uppers <- data.frame(position = unlist(gregexpr("[A-Z]"
+, postseasonfinal$TeamName))) %>%
+mutate(next_position = lead(position)
+, keep = ifelse(next_position < position |
+is.na(next_position)==TRUE
+, yes = 1, no = 0)) %>%
+filter(keep == 1)
+
+# WRANGLED DATA 
+finalwrangle <- postseasonfinal %>%
+mutate(Team = str_sub(TeamName, 1, uppers$position-1)) %>%
+  select(Team, Location, G, AB, R, H, HR, RBI, BB, SO, AVG, OBP, SLG, OPS)
+```
+
+# Save `finalwrangle`
+
+- need to save final dataset as permanent file in repo so can import that final dataset into your app.R program that contains the shiny app code (you don't want to have to run all this each time you run the shiny app)
+
+```{r}
+write_csv(finalwrangle, "finalwrangle.csv")
+```
+
+
+
+
+
+
+
